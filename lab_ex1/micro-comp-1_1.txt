@@ -1,0 +1,52 @@
+.include"m328PBdef.inc"
+.DEF temp=r16
+.DEF varA=r17
+.DEF varB=r18
+.DEF varC=r19
+.DEF varD=r20
+.DEF F0=r21
+.DEF F1=r22
+
+reset:
+	ldi r24,low(RAMEND)	; Initialize stack pointer
+	out SPL,r24
+	ldi r24,high(RAMEND)
+	out SPH,r24
+
+start: 
+	clr temp 				; Clear temp register
+	out DDRB,temp 			; Set all pins of PORTB as input
+	ser temp
+	out PORTB,temp 		; Enable pull-up resistors for PORTB
+	out DDRC,temp 			; Set all pins of PORTC as output
+
+main:
+	in temp,PINB 			; Read input from PORTB
+	mov varA,temp 			; Copy LSB of PORTB to varA
+	lsr temp
+	mov varB,temp 			; Copy LSB of PORTB to varB
+	lsr temp
+	mov varC,temp 			; Copy LSB of PORTB to varC
+	lsr temp
+	mov varD,temp 			; Copy LSB of PORTB to varD
+
+	mov F0,varB			; Copy varB to F0
+	com F0				; F0 = NOT varB
+	and F0,varD			; F0 = (NOT varB) AND varD
+	mov temp,varA			; Copy varA to temp
+	and varA,varB			; varA = varA AND varB
+	or F0,varA			; F0 = (NOT varB) AND varD + (varA AND varB)
+	mov varA,temp			; Restore varA
+	com varD			; varD = NOT varD
+	or varB,varD			; varB = varB OR NOT varD
+	com varC			; varC = NOT varC
+	com varA			; varA = NOT varA
+	or varA,varC			; varA = NOT varA OR NOT varC
+	mov F1,varA			; Copy varA to F1
+	and F1,varB			; F1 = (varB OR NOT varD) AND (NOT varA OR NOT varC)
+	lsl F1				; Shift F1 left to get 2nd LSB
+	andi F0,0x01 			; Extract LSB
+	andi F1,0x02 			; Extract 2nd LSB
+	or F0,F1 				; Combine LSB and 2nd LSB
+	out PORTC,F0			; Output result to PORTC
+	rjmp main

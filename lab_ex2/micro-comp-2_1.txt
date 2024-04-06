@@ -1,0 +1,55 @@
+.include "m328pbdef.inc"
+    .DEF temp = r24          ; Define temporary register
+    .DEF counter = r19       ; Define loop counter
+    .DEF pin_status = r17    ; Define register for input pins
+    .def current_led = r20   ; Define register for current LED state
+    .cseg
+    .org 0x00                ; Reset vector
+    rjmp initialize          ; Jump to initialization routine
+    
+    .org 0x4                 ; External Interrupt 1 vector
+    rjmp ISR1                ; Jump to ISR1
+    
+initialize:
+    ldi temp,low(RAMEND)     ; Initialize stack pointer
+    out SPL,temp
+    ldi temp,high(RAMEND)
+    out SPH,temp
+    
+    ser temp                ; Set all bits in temp register
+    out DDRC,temp           ; Set all pins of PORTC as output
+    clr temp                ; Clear temp register
+    out DDRD,temp           ; Set all pins of PORTD as input
+    
+    ldi temp,(1<<ISC11)|(0<<ISC10)  ; Set INT1 to trigger on falling edge
+    sts EICRA,temp                  ; Store configuration in EICRA register
+    ldi temp,(1<<INT1)               ; Enable INT1 interrupt
+    out EIMSK,temp                  ; Enable external interrupt INT1
+    
+    sei                             ; Enable global interrupts
+    
+    ldi current_led,0x00            ; Initialize LED state
+    OUT PORTC,current_led           ; Output initial LED state to PORTC
+    
+loop:
+    out PORTC,current_led           ; Update PORTC with current LED state
+    rjmp loop                       ; Endless loop
+    
+ISR1:
+    in pin_status,PIND              ; Read input pins
+    sbrs pin_status, 7              ; Check if pin 7 of PORTD is set
+    rjmp skip2                      ; If not, skip to skip2
+    inc current_led                  ; Increment LED state
+    cpi current_led, 32              ; Compare LED state with 32
+    breq skip                        ; If LED state is 32, skip to skip
+    out PORTC,current_led            ; Output updated LED state to PORTC
+    reti                             ; Return from interrupt
+    
+    skip:
+    ldi current_led,0x00            ; Reset LED state to 0
+    reti                             ; Return from interrupt
+    
+    skip2:
+    nop                             ; No operation
+    nop                             ; No operation
+    reti                            ; Return from interrupt

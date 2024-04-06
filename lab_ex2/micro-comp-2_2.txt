@@ -1,0 +1,63 @@
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <util/delay.h>
+
+#define F_CPU 16000000UL // Define CPU frequency
+
+int flag = 0; // Global flag variable
+
+// Interrupt Service Routine for External Interrupt 1
+ISR(INT1_vect) {
+    flag = 1; // Set flag to 1
+}
+
+// Function to turn on LEDs
+void turnOnLEDs() {
+    sei(); // Enable global interrupts
+    flag = 0; // Reset flag
+    PORTB = 0xFF; // Turn on all LEDs connected to PORTB
+    PORTC = flag; // Output flag value to PORTC
+    int i;
+    // Delay loop for stabilization
+    for (i = 0; i < 10; i++) {
+        _delay_ms(45);
+        if (flag == 1) { // If flag becomes 1 during delay, recursively call turnOnLEDs
+            turnOnLEDs();
+            return;
+        }
+    }
+}
+
+int main() {
+    EICRA = (1 << ISC10) | (1 << ISC11); // Set INT1 to trigger on rising edge
+    EIMSK = (1 << INT1); // Enable INT1 interrupt
+    sei(); // Enable global interrupts
+    DDRC = 0xFF; // Set PORTC as output
+    DDRB = 0xFF; // Set PORTB as output
+    PORTB = 0x00; // Initialize PORTB to 0
+    int i;
+    // Main loop
+    while (1) {
+        PORTC = flag; // Output flag value to PORTC
+        if (flag == 0) // If flag is 0, turn off all LEDs
+            PORTB = 0x00;
+        if (flag == 1) { // If flag is 1, initiate LED sequence
+            _delay_ms(10);
+            flag = 0; // Reset flag after delay
+            _delay_ms(10);
+            PORTB = 0x01; // Turn on first LED
+            PORTC = flag; // Output flag value to PORTC
+            // Delay loop for LED sequence
+            for (i = 0; i < 50; i++) {
+                _delay_ms(80);
+                if (flag == 1) { // If flag becomes 1 during delay, call turnOnLEDs
+                    PORTC = flag;
+                    turnOnLEDs();
+                    flag = 1;
+                    break;
+                }
+            }
+        }
+    }
+    return 0;
+}

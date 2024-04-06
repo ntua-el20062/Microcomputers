@@ -1,0 +1,61 @@
+.include "m328PBdef.inc"
+; delay = (1000*F1+14) cycles (about DEL_mS in milliseconds)
+.equ FOSC_MHZ=16		; MHz
+.equ DEL_mS=500			; milliseconds
+.equ F1=FOSC_MHZ*DEL_mS
+
+reset:
+	ldi r24,low(RAMEND)	; Initialize stack pointer
+	out SPL,r24
+	ldi r24,high(RAMEND)
+	out SPH,r24
+	
+start: 
+	ser r16
+	out DDRD,r16		; Set all pins of PORTD as output
+	ldi r17,0x07		; Initialize counter to 7
+	ldi r18,0x80		; Initialize LED pattern
+	nop
+	
+	ldi r24,low(F1)	; Set delay   
+	ldi r25,high(F1)
+
+left:
+	rcall delay_outer	; Call delay_outer subroutine
+	out PORTD,r18		; Output LED pattern to PORTD
+	cpi r17,0x00		; Check if counter is 0
+	breq right			; If yes, jump to right
+	lsr r18				; Shift LED pattern to left
+	dec r17				; Decrement counter
+	rjmp left			; Jump to left
+
+right:
+	rcall delay_outer	; Call delay_outer subroutine
+	out PORTD,r18		; Output LED pattern to PORTD
+	cpi r17,0x07		; Check if counter is 7
+	breq left			; If yes, jump to left
+	lsl r18				; Shift LED pattern to right
+	inc r17				; Increment counter
+	rjmp right			; Jump to right
+
+; This subroutine is used to produce a delay of approximately 993 cycles
+delay_inner:		    
+	ldi r23,247			; Load delay count
+loop3:
+	dec r23				; Decrement count
+	nop					; No operation
+	brne loop3			; Repeat until count reaches 0
+	nop					; No operation
+	ret					; Return
+
+; This subroutine is used to produce a delay of (1000*F1+14) cycles
+delay_outer:
+	push r24			; Save r24
+	push r25			; Save r25
+loop4:
+	rcall delay_inner	; Call delay_inner subroutine
+	sbiw r24,1			; Decrement delay count
+	brne loop4			; Repeat until delay count reaches 0
+	pop r25				; Restore r25
+	pop r24				; Restore r24
+	ret					; Return
